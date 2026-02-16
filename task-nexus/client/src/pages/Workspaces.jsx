@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Building2, Plus, Users, Trash2, ChevronRight } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://code-relay-foobar.onrender.com/api';
 
 export default function Workspaces() {
     const [workspaces, setWorkspaces] = useState();

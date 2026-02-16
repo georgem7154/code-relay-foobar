@@ -4,7 +4,7 @@ import axios from "axios";
 import { FolderKanban, Plus, Trash2, ArrowLeft, Users } from "lucide-react";
 import InviteModal from "../modules/WorkspaceComponents/InviteModal";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://code-relay-foobar.onrender.com/api";
 
 export default function Projects() {
   const { workspaceId } = useParams();

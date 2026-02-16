@@ -24,7 +24,7 @@ import {
   Area,
 } from "recharts";
 
-const API_BASE = import.meta.env.API_URL || "http://localhost:5000/api";
+const API_BASE = "https://code-relay-foobar.onrender.com/api";
 
 // Chart Colors
 const COLORS = {

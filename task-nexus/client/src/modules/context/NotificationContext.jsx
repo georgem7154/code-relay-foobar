@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useAuth } from './AuthContext';
 
 const NotificationContext = createContext(null);
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://code-relay-foobar.onrender.com/api';
 
 export function NotificationProvider({ children }) {
     const { user, token } = useAuth();

@@ -3,7 +3,7 @@ import axios from "axios";
 import { X, UserPlus, Mail, Shield, User } from "lucide-react";
 import { useNotification } from "../context/NotificationContext";
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://code-relay-foobar.onrender.com/api";
 
 export default function InviteModal({ isOpen, onClose, workspaceId }) {
   const [email, setEmail] = useState("");

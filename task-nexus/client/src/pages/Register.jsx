@@ -29,7 +29,7 @@ export default function Register() {
 
     try {
       await register(username, email, password);
-      navigate("/");
+      navigate("/dashboard");
     } catch (err) {
       // FIX: Access the specific error message from the backend response
       setError(err.response?.data?.error || "Registration failed");

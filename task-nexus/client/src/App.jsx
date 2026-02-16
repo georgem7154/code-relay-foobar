@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./modules/context/AuthContext";
 import { NotificationProvider } from "./modules/context/NotificationContext";
 import LayoutComponent from "./modules/Layout";
-import Landing from "./pages/Landing"; // New Landing Page
+import Landing from "./pages/Landing"; // New Import
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -12,7 +12,6 @@ import Projects from "./pages/Projects";
 import Tasks from "./pages/Tasks";
 import "./App.css";
 
-// ProtectedRoute: Ensures only logged-in users can access the dashboard
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
 
@@ -25,7 +24,6 @@ function ProtectedRoute({ children }) {
   }
 
   if (!user) {
-    // Redirect to login if user tries to hit /dashboard without being authed
     return <Navigate to="/login" replace />;
   }
 
@@ -38,33 +36,35 @@ function App() {
       <NotificationProvider>
         <BrowserRouter>
           <Routes>
-            {/* --- Public Routes --- */}
-            {/* Landing page is now the entry point */}
+            {/* Public Routes */}
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* --- Protected App Routes --- */}
-            {/* All protected logic now lives under /dashboard */}
+            {/* Protected Routes (Wrapped in Layout) */}
             <Route
-              path="/dashboard"
               element={
                 <ProtectedRoute>
                   <LayoutComponent />
                 </ProtectedRoute>
               }
             >
-              {/* This renders at /dashboard */}
-              <Route index element={<Dashboard />} />
-              
-              {/* These render at /dashboard/workspaces, etc. */}
-              <Route path="workspaces" element={<Workspaces />} />
-              <Route path="workspaces/:workspaceId" element={<Projects />} />
-              <Route path="projects/:projectId" element={<Tasks />} />
+              {/* Note: Dashboard is now at /dashboard to match 
+                  the redirect logic in your Landing.jsx 
+              */}
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/workspaces" element={<Workspaces />} />
+              <Route path="/workspaces/:workspaceId" element={<Projects />} />
+              <Route path="/projects/:projectId" element={<Tasks />} />
+
+              {/* Optional: Redirect root-level protected access to dashboard */}
+              <Route
+                path="/app"
+                element={<Navigate to="/dashboard" replace />}
+              />
             </Route>
 
-            {/* --- Catch-all --- */}
-            {/* Redirect unknown URLs back to Landing */}
+            {/* Catch-all: Redirect unknown URLs to Landing or Dashboard based on Auth */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

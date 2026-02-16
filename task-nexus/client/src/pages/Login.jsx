@@ -12,6 +12,7 @@ function Login() {
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
+    e.preventDefault(); // FIX: Added preventDefault to stop page reload
     setError("");
     setLoading(true);
 
@@ -19,7 +20,8 @@ function Login() {
       await login(email, password);
       navigate("/");
     } catch (err) {
-      setError(err.data?.error || "Login failed");
+      // FIX: Access err.response.data.error to get the message from server.js
+      setError(err.response?.data?.error || "Login failed");
     } finally {
       setLoading(false);
     }

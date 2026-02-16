@@ -421,6 +421,53 @@ app.delete("/api/tasks/:id", (req, res) => {
 
 // --- ANALYTICS ROUTES ---
 
+// --- NOTIFICATION ROUTES ---
+
+// Get notifications for the logged-in user
+app.get("/api/notifications", (req, res) => {
+  let userId = 1; // Fallback
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (token) userId = jwt.verify(token, JWT_SECRET).id;
+  } catch (e) {}
+
+  const query =
+    "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20";
+  fluxNexusHandler.query(query, [userId], (err, results) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(results);
+  });
+});
+
+// Mark a notification as read
+app.put("/api/notifications/:id/read", (req, res) => {
+  fluxNexusHandler.query(
+    "UPDATE notifications SET is_read = TRUE WHERE id = ?",
+    [req.params.id],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    },
+  );
+});
+
+// Mark ALL as read
+app.put("/api/notifications/read-all", (req, res) => {
+  let userId = 1;
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (token) userId = jwt.verify(token, JWT_SECRET).id;
+  } catch (e) {}
+
+  fluxNexusHandler.query(
+    "UPDATE notifications SET is_read = TRUE WHERE user_id = ?",
+    [userId],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true });
+    },
+  );
+});
 app.get("/api/analytics/dashboard", (req, res) => {
   let userId = 1;
   try {
@@ -432,6 +479,7 @@ app.get("/api/analytics/dashboard", (req, res) => {
     "SELECT w.id FROM workspaces w JOIN workspace_members wm ON w.id = wm.workspace_id WHERE wm.user_id = ?",
     [userId],
     (err, workspaces) => {
+      // Handle no workspaces found
       if (err || !workspaces || workspaces.length === 0) {
         return res.json({
           totalTasks: 0,
@@ -443,55 +491,122 @@ app.get("/api/analytics/dashboard", (req, res) => {
           recentActivity: [],
           tasksByStatus: [],
           tasksByPriority: [],
+          weeklyProgress: [], // Return empty array
         });
       }
 
       const wsIds = workspaces.map((w) => w.id);
       const placeholders = wsIds.map(() => "?").join(",");
 
-      // Using Promises logic to avoid heavy callback nesting could be better, but keeping style consistent for now
+      // 1. General Stats
       fluxNexusHandler.query(
         `SELECT COUNT(*) as totalTasks,
-                    SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as completedTasks,
-                    SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) as inProgressTasks,
-                    SUM(CASE WHEN t.due_date < NOW() AND t.status != 'done' THEN 1 ELSE 0 END) as overdueTasks
-                 FROM tasks t JOIN projects p ON t.project_id = p.id WHERE p.workspace_id IN (${placeholders})`,
+                SUM(CASE WHEN t.status = 'done' THEN 1 ELSE 0 END) as completedTasks,
+                SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) as inProgressTasks,
+                SUM(CASE WHEN t.due_date < NOW() AND t.status != 'done' THEN 1 ELSE 0 END) as overdueTasks
+         FROM tasks t JOIN projects p ON t.project_id = p.id WHERE p.workspace_id IN (${placeholders})`,
         wsIds,
         (err2, stats) => {
+          // 2. Total Projects
           fluxNexusHandler.query(
             `SELECT COUNT(*) as totalProjects FROM projects WHERE workspace_id IN (${placeholders})`,
             wsIds,
             (err3, projStats) => {
+              // 3. Breakdown by Status (Pie Chart Data)
               fluxNexusHandler.query(
                 `SELECT t.status, COUNT(*) as count FROM tasks t JOIN projects p ON t.project_id = p.id WHERE p.workspace_id IN (${placeholders}) GROUP BY t.status`,
                 wsIds,
                 (err4, byStatus) => {
+                  // 4. Breakdown by Priority
                   fluxNexusHandler.query(
                     `SELECT t.priority, COUNT(*) as count FROM tasks t JOIN projects p ON t.project_id = p.id WHERE p.workspace_id IN (${placeholders}) GROUP BY t.priority`,
                     wsIds,
                     (err5, byPriority) => {
-                      res.json({
-                        totalTasks: stats[0]?.totalTasks || 0,
-                        completedTasks: stats[0]?.completedTasks || 0,
-                        inProgressTasks: stats[0]?.inProgressTasks || 0,
-                        overdueTasks: stats[0]?.overdueTasks || 0,
-                        totalProjects: projStats[0]?.totalProjects || 0,
-                        totalWorkspaces: wsIds.length,
-                        recentActivity: [],
-                        tasksByStatus: byStatus || [],
-                        tasksByPriority: byPriority || [],
-                      });
+                      // 5. Weekly Progress (Line Chart Data) - NEW QUERY
+                      fluxNexusHandler.query(
+                        `SELECT DATE_FORMAT(updated_at, '%Y-%m-%d') as date, COUNT(*) as count 
+                         FROM tasks 
+                         WHERE status = 'done' 
+                         AND updated_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
+                         AND project_id IN (SELECT id FROM projects WHERE workspace_id IN (${placeholders}))
+                         GROUP BY date 
+                         ORDER BY date ASC`,
+                        wsIds,
+                        (err6, weeklyData) => {
+                          // Final Response
+                          res.json({
+                            totalTasks: stats[0]?.totalTasks || 0,
+                            completedTasks: stats[0]?.completedTasks || 0,
+                            inProgressTasks: stats[0]?.inProgressTasks || 0,
+                            overdueTasks: stats[0]?.overdueTasks || 0,
+                            totalProjects: projStats[0]?.totalProjects || 0,
+                            totalWorkspaces: wsIds.length,
+                            recentActivity: [],
+                            tasksByStatus: byStatus || [],
+                            tasksByPriority: byPriority || [],
+                            weeklyProgress: weeklyData || [], // Sent to frontend
+                          });
+                        },
+                      ); // End Weekly Query
                     },
-                  );
+                  ); // End Priority Query
                 },
-              );
+              ); // End Status Query
             },
-          );
+          ); // End Project Query
         },
-      );
+      ); // End Stats Query
     },
   );
 });
+
+
+
+
+
+// --- WORKSPACE INVITE ROUTE ---
+
+app.post("/api/workspaces/:id/invite", (req, res) => {
+    const { email } = req.body;
+    const workspaceId = req.params.id;
+
+    // 1. Find the User by Email
+    fluxNexusHandler.query("SELECT id FROM users WHERE email = ?", [email], (err, users) => {
+        if (err) return res.status(500).json({ error: "Database error" });
+        if (users.length === 0) return res.status(404).json({ error: "User with this email not found" });
+
+        const userId = users[0].id;
+
+        // 2. Check if already a member
+        fluxNexusHandler.query(
+            "SELECT * FROM workspace_members WHERE workspace_id = ? AND user_id = ?",
+            [workspaceId, userId],
+            (err2, members) => {
+                if (err2) return res.status(500).json({ error: "Database error" });
+                if (members.length > 0) return res.status(400).json({ error: "User is already a member" });
+
+                // 3. Insert into Workspace
+                fluxNexusHandler.query(
+                    "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (?, ?, 'member')",
+                    [workspaceId, userId],
+                    (err3) => {
+                        if (err3) return res.status(500).json({ error: "Failed to add member" });
+
+                        // 4. Send Notification to the new user
+                        fluxNexusHandler.query(
+                            "INSERT INTO notifications (user_id, type, message) VALUES (?, 'invite', ?)",
+                            [userId, `You were added to a new workspace`]
+                        );
+
+                        res.json({ success: true, message: "Member added successfully" });
+                    }
+                );
+            }
+        );
+    });
+});
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

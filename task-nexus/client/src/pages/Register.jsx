@@ -13,24 +13,11 @@ export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const validatePassword = (pass) => {
-    // Requirements: Min 8 chars, 1 uppercase, 1 number, 1 special char
-    const regex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    return regex.test(pass);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    // Enforce strong password policy
-    if (!validatePassword(password)) {
-      setError(
-        "Password must be at least 8 characters long and include an uppercase letter, a number, and a special character.",
-      );
-      return;
-    }
+    // REMOVED: Password complexity check (regex)
 
     // Strict Equality Check for confirmation
     if (password !== confirmPassword) {
@@ -44,6 +31,7 @@ export default function Register() {
       await register(username, email, password);
       navigate("/");
     } catch (err) {
+      // FIX: Access the specific error message from the backend response
       setError(err.response?.data?.error || "Registration failed");
     } finally {
       setLoading(false);
@@ -112,7 +100,7 @@ export default function Register() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 8 chars (A, 1, @)"
+                placeholder="Password"
                 required
               />
             </div>
@@ -127,7 +115,7 @@ export default function Register() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat your password"
+                placeholder="Repeat password"
                 required
               />
             </div>

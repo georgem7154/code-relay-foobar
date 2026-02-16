@@ -1,60 +1,76 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './modules/context/AuthContext';
-import LayoutComponent from './modules/Layout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
-import Workspaces from './pages/Workspaces';
-import Projects from './pages/Projects';
-import Tasks from './pages/Tasks';
-import './App.css';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./modules/context/AuthContext";
+import { NotificationProvider } from "./modules/context/NotificationContext";
+import LayoutComponent from "./modules/Layout";
+import Landing from "./pages/Landing"; // New Landing Page
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Workspaces from "./pages/Workspaces";
+import Projects from "./pages/Projects";
+import Tasks from "./pages/Tasks";
+import "./App.css";
 
-// Fix: Redirect unauthenticated users to Login instead of returning null
+// ProtectedRoute: Ensures only logged-in users can access the dashboard
 function ProtectedRoute({ children }) {
-    const { user, loading } = useAuth();
+  const { user, loading } = useAuth();
 
-    // Show spinner while checking auth status
-    if (loading) {
-        return (
-            <div className="page-loading">
-                <div className="spinner"></div>
-            </div>
-        );
-    }
+  if (loading) {
+    return (
+      <div className="page-loading">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
 
-    // Redirect to login if not authenticated
-    if (!user) {
-        return <Navigate to="/login" replace />;
-    }
+  if (!user) {
+    // Redirect to login if user tries to hit /dashboard without being authed
+    return <Navigate to="/login" replace />;
+  }
 
-    // Render the protected page if authenticated
-    return children;
+  return children;
 }
 
 function App() {
-    return (
-        <AuthProvider>
-            <BrowserRouter>
-                <Routes>
-                    {/* Public Routes */}
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
+  return (
+    <AuthProvider>
+      <NotificationProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* --- Public Routes --- */}
+            {/* Landing page is now the entry point */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-                    {/* Protected Routes (Wrapped in Layout) */}
-                    <Route path="/" element={<ProtectedRoute><LayoutComponent /></ProtectedRoute>}>
-                        <Route index element={<Dashboard />} />
-                        <Route path="workspaces" element={<Workspaces />} />
-                        <Route path="workspaces/:workspaceId" element={<Projects />} />
-                        <Route path="projects/:projectId" element={<Tasks />} />
-                    </Route>
+            {/* --- Protected App Routes --- */}
+            {/* All protected logic now lives under /dashboard */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <LayoutComponent />
+                </ProtectedRoute>
+              }
+            >
+              {/* This renders at /dashboard */}
+              <Route index element={<Dashboard />} />
+              
+              {/* These render at /dashboard/workspaces, etc. */}
+              <Route path="workspaces" element={<Workspaces />} />
+              <Route path="workspaces/:workspaceId" element={<Projects />} />
+              <Route path="projects/:projectId" element={<Tasks />} />
+            </Route>
 
-                    {/* Catch-all: Redirect unknown URLs to home */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </BrowserRouter>
-        </AuthProvider>
-    );
+            {/* --- Catch-all --- */}
+            {/* Redirect unknown URLs back to Landing */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </NotificationProvider>
+    </AuthProvider>
+  );
 }
 
 export default App;

@@ -18,7 +18,7 @@ function Login() {
 
     try {
       await login(email, password);
-      navigate("dashboard");
+      navigate("/dashboard");
     } catch (err) {
       // FIX: Access err.response.data.error to get the message from server.js
       setError(err.response?.data?.error || "Login failed");
